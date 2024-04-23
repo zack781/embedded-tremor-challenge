@@ -8,11 +8,13 @@ Adafruit_CPlay_NeoPixel strip = Adafruit_CPlay_NeoPixel(NUM_PIXELS, NEOPIX_PIN, 
 
 void setup() {
   CircuitPlayground.begin();
+  Serial.begin(115200);
+  // Print log
+  Serial.println("setup");
 }
 
 void loop() {
   CircuitPlayground.clearPixels();
-  delay(500);
 
   // Color can be set using RGB or Hex
   CircuitPlayground.setPixelColor(0, 255,   0,   0);
@@ -28,9 +30,17 @@ void loop() {
   CircuitPlayground.setPixelColor(9, 0x0000FF);
 
   // Reading Accelerometer Data
+  // Serial.println(CircuitPlayground.motionX());
+  // Serial.println(CircuitPlayground.motionY());
+  // Serial.println(CircuitPlayground.motionZ());
+
+  // This print format must be follow in order to display the data in Teloplot
+  Serial.print(">X Value:");
   Serial.println(CircuitPlayground.motionX());
+  Serial.print(">Y Value:");
   Serial.println(CircuitPlayground.motionY());
+  Serial.print(">Z Value:");
   Serial.println(CircuitPlayground.motionZ());
 
-  delay(5000);
+  delay(50);
 }
