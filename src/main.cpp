@@ -1,5 +1,8 @@
 #include <Arduino.h>
 #include <Adafruit_CircuitPlayground.h>
+#include <Adafruit_ZeroFFT.h>
+
+
 
 #define NEOPIX_PIN    A2
 #define NUM_PIXELS    5
