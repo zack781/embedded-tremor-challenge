@@ -82,8 +82,25 @@ ISR (TIMER0_COMPA_vect) {
 }
 
 void loop() {
-  CircuitPlayground.clearPixels();
 
+/* NEOPIXELS CONFIGURATION */
+// Map out the intensity of the tremor onto the neopixels
+  CircuitPlayground.clearPixels();
+  CircuitPlayground.setBrightness(b); // brightness b is a value from 0 to 255
+                                      // setBrightness only affects pixel colors set after it is called
+
+// Set the desired color set
+  // We can also configure the intensity of the pixel --> turning it to a mapping to 20 divisions
+uint32_t colors[10] = {0x111111, 0x222222, 0x333333, 0x444444, 0x555555, 0x666666, 0x777777, 0x888888, 0x999999, 0xaaaaaa};
+for (int i = 0; i < 10; ++i) {
+    if (intensity >= threshold[i]) {
+        CircuitPlayground.setPixelColor(i, colors[i]);
+    } else
+        break;  
+}
+
+
+  
   // Color can be set using RGB or Hex
   CircuitPlayground.setPixelColor(0, 255,   0,   0);
   CircuitPlayground.setPixelColor(1, 128, 128,   0);
