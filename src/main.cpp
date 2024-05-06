@@ -62,6 +62,10 @@ float calculateNpointMovingAVG(float avg_vals[]) {
 #define SCL_PLOT 0x03
 
 
+float freqDataPoints[100];
+float MagnitudeDataPoints[100];
+int dataPointsCounter = 0;
+
 void PrintVector(float *vData, uint16_t bufferSize, uint8_t scaleType)
 {
   for (uint16_t i = 0; i < bufferSize; i++)
@@ -80,18 +84,28 @@ void PrintVector(float *vData, uint16_t bufferSize, uint8_t scaleType)
         abscissa = ((i * 1.0 * sampling) / samples);
 	break;
     }
-    Serial.print(abscissa, 6);
+    Serial.print(abscissa, 6);  
     if(scaleType==SCL_FREQUENCY)
       Serial.print("Hz");
     Serial.print(" ");
     // Serial.print(">Magnitude:");
     Serial.println(vData[i], 4);
+    if (abscissa >= 3 || abscissa <= 6) {
+      freqDataPoints[dataPointsCounter] = abscissa;
+      MagnitudeDataPoints[dataPointsCounter] = vData[i];
+      dataPointsCounter++;
+    }
   }
   Serial.println();
 }
 
 int counter = 0;
 int movingAvgCounter = 0;
+
+float findArea(float x1, float x2, float y1, float y2) {
+  return (x2 - x1) * (y1 + y2) / 2;
+}
+
 ISR (TIMER0_COMPA_vect) {
   // This is ran every 20ms
 
@@ -124,25 +138,6 @@ ISR (TIMER0_COMPA_vect) {
     vReal[counter] = accel;
   }
 
-  // avgArray[N-1] = xAccel;
-
-  // for (uint16_t i = 0; i < samples; i++) {
-  //   Serial.print("val = ");
-  //   Serial.println(vReal[i]);
-  // } 
-
-  // Perform Moving Average
-  // float HRMovingAvg = calculateNpointMovingAVG(avgArray);
-  // Serial.print("HRMovingAvg = ");
-  // Serial.println(HRMovingAvg);
-
-  // for (uint16_t i = 0; i < samples - 1; i++) {
-  //   Serial.print("vReal = ");
-  //   Serial.println(vReal[i]);
-  //   vReal[i] = vReal[i+1];
-  // }
-  // vReal[samples - 1] = HRMovingAvg;
-
   vImag[counter] = 0;
   counter++;
 
@@ -152,28 +147,17 @@ ISR (TIMER0_COMPA_vect) {
     FFT.compute(FFTDirection::Forward); // Compute FFT
     FFT.complexToMagnitude(); // Compute magnitudes
 
-    // Serial.print(">FFT Value:");
-    // Serial.println(FFT.majorPeak());
-
     Serial.println("Computed magnitudes:");
     PrintVector(vReal, (samples >> 1), SCL_FREQUENCY);
+
+    float area = 0;
+    for (int i = 0; i < dataPointsCounter - 1; i++) {
+      area += findArea(freqDataPoints[i], freqDataPoints[i+1], MagnitudeDataPoints[i], MagnitudeDataPoints[i+1]);
+    }
 
     counter = 0;
     sei(); // Enable interrupts
   }
-
-  // for (uint16_t i = 0; i < samples; i++) {
-  //   Serial.print("vReal = ");
-  //   Serial.println(vReal[i]); 
-  // }
- 
-  // Perform the FFT
-  // FFT.windowing(FFTWindow::Hamming, FFTDirection::Forward); // Weigh data
-  // FFT.compute(FFTDirection::Forward); // Compute FFT
-  // FFT.complexToMagnitude(); // Compute magnitudes
-
-  // Serial.print(">FFT Value:");
-  // Serial.println(FFT.majorPeak());
 }
 
 void loop() {
