@@ -23,7 +23,10 @@ ArduinoFFT<float> FFT = ArduinoFFT<float>(vReal, vImag, samples, sampling);
 const uint16_t N = 5; // Window size for moving average
 
 float avgArray[N];
-
+float pk= 0;
+float sumPower = 0;
+float sumPeakPower = 0;
+int processCounter = 0;
 void setup() { 
   CircuitPlayground.begin();
   Serial.begin(115200);
@@ -68,7 +71,7 @@ int dataPointsCounter = 0;
 
 void PrintVector(float *vData, uint16_t bufferSize, uint8_t scaleType)
 {
-  for (uint16_t i = 0; i < bufferSize; i++)
+  for (uint16_t i = 4; i < 9; i++)
   {
     float abscissa;
     /* Print abscissa value */
@@ -88,11 +91,15 @@ void PrintVector(float *vData, uint16_t bufferSize, uint8_t scaleType)
     if(scaleType==SCL_FREQUENCY)
       Serial.print("Hz");
     Serial.print(" ");
-    // Serial.print(">Magnitude:");
+    Serial.print(">Magnitude:");
     Serial.println(vData[i], 4);
-    if (abscissa >= 3 || abscissa <= 6) {
+    if (abscissa >= 3 && abscissa <= 6.5) {
+      if (vData[i] * vData[i] > pk)
+      {
+        pk = vData[i] * vData[i];
+      }
       freqDataPoints[dataPointsCounter] = abscissa;
-      MagnitudeDataPoints[dataPointsCounter] = vData[i];
+      MagnitudeDataPoints[dataPointsCounter] = vData[i]*vData[i];
       dataPointsCounter++;
     }
   }
@@ -103,6 +110,15 @@ int counter = 0;
 int movingAvgCounter = 0;
 
 float findArea(float x1, float x2, float y1, float y2) {
+  // Serial.print(">x1:");
+  // Serial.println(x1, 4);
+  // Serial.print(">x2:");
+  // Serial.println(x2, 4);
+  // Serial.print(">y1:");
+  // Serial.println(y1, 4);
+  // Serial.print(">y2:");
+  // Serial.println(y2, 4);
+
   return (x2 - x1) * (y1 + y2) / 2;
 }
 
@@ -122,6 +138,7 @@ ISR (TIMER0_COMPA_vect) {
   float zAccel = CircuitPlayground.motionZ();
 
   float accel = sqrt(xAccel * xAccel + yAccel * yAccel + zAccel * zAccel);
+  // float accel =  sqrt(xAccel * xAccel + yAccel * yAccel);
 
   // Add the new data to the FFT
   for (uint16_t i = 0; i < N - 1; i++) {
@@ -130,7 +147,7 @@ ISR (TIMER0_COMPA_vect) {
   avgArray[N-1] = accel;
 
   movingAvgCounter++;
-  if (movingAvgCounter == 20) {
+  if (movingAvgCounter == 10) {
     movingAvgCounter=0;
     float HRMovingAvg = calculateNpointMovingAVG(avgArray);
     vReal[counter] = HRMovingAvg;
@@ -139,10 +156,9 @@ ISR (TIMER0_COMPA_vect) {
   }
 
   vImag[counter] = 0;
-  counter++;
-
+  
   if (counter == samples - 1) {
-    cli(); // Disable interrupts
+    cli(); // Disable interruptss
     FFT.windowing(FFTWindow::Hamming, FFTDirection::Forward); // Weigh data
     FFT.compute(FFTDirection::Forward); // Compute FFT
     FFT.complexToMagnitude(); // Compute magnitudes
@@ -152,27 +168,42 @@ ISR (TIMER0_COMPA_vect) {
 
     float area = 0;
     for (int i = 0; i < dataPointsCounter - 1; i++) {
+      // Serial.print(">freqDataPoints[i]:");
+      // Serial.println(freqDataPoints[i], 4);
       area += findArea(freqDataPoints[i], freqDataPoints[i+1], MagnitudeDataPoints[i], MagnitudeDataPoints[i+1]);
     }
+
+    Serial.print("Area under the curve: ");
+    Serial.println(area);
+
+    dataPointsCounter = 0;
 
     counter = 0;
     sei(); // Enable interrupts
   }
+
+  counter++;
+  processCounter++;
 }
 
 void loop() {
+  if(processCounter == 1500)
+  {
+    processCounter = 0;
+    if(sumPower/1500;
+  }
   CircuitPlayground.clearPixels();
 
-  // Color can be set using RGB or Hex
-  CircuitPlayground.setPixelColor(0, 255,   0,   0);
-  CircuitPlayground.setPixelColor(1, 128, 128,   0);
-  CircuitPlayground.setPixelColor(2,   0, 255,   0);
-  CircuitPlayground.setPixelColor(3,   0, 128, 128);
-  CircuitPlayground.setPixelColor(4,   0,   0, 255);
+  // // Color can be set using RGB or Hex
+  // CircuitPlayground.setPixelColor(0, 255,   0,   0);
+  // CircuitPlayground.setPixelColor(1, 128, 128,   0);
+  // CircuitPlayground.setPixelColor(2,   0, 255,   0);
+  // CircuitPlayground.setPixelColor(3,   0, 128, 128);
+  // CircuitPlayground.setPixelColor(4,   0,   0, 255);
   
-  CircuitPlayground.setPixelColor(5, 0xFF0000);
-  CircuitPlayground.setPixelColor(6, 0x808000);
-  CircuitPlayground.setPixelColor(7, 0x00FF00);
-  CircuitPlayground.setPixelColor(8, 0x008080);
-  CircuitPlayground.setPixelColor(9, 0x0000FF);
+  // CircuitPlayground.setPixelColor(5, 0xFF0000);
+  // CircuitPlayground.setPixelColor(6, 0x808000);
+  // CircuitPlayground.setPixelColor(7, 0x00FF00);
+  // CircuitPlayground.setPixelColor(8, 0x008080);
+  // CircuitPlayground.setPixelColor(9, 0x0000FF);
 }
