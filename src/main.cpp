@@ -1,8 +1,7 @@
 #include <Arduino.h>
 #include <Adafruit_CircuitPlayground.h>
 #include "arduinoFFT.h"
-#include <Wire.h>
-#include <SPI.h>
+
 
 #define NEOPIX_PIN    A2
 #define NUM_PIXELS    5
@@ -165,17 +164,17 @@ void loop()
     //if the peak power is greater than 75% of the total power, then we consider it as a detection
     if((.75*(sumPower) <= (sumPeakPower)))
     {
-      //Green Light
-      CircuitPlayground.setPixelColor(0, 0x008000);
-      CircuitPlayground.setPixelColor(1, 0x008000);
-      CircuitPlayground.setPixelColor(2, 0x008000);
-      CircuitPlayground.setPixelColor(3, 0x008000);
-      CircuitPlayground.setPixelColor(4, 0x008000);
-      CircuitPlayground.setPixelColor(5, 0x008000);
-      CircuitPlayground.setPixelColor(6, 0x008000);
-      CircuitPlayground.setPixelColor(7, 0x008000);
-      CircuitPlayground.setPixelColor(8, 0x008000);
-      CircuitPlayground.setPixelColor(9, 0x008000);
+      int numLED = 10*sumPeakPower/320;
+      if(sumPeakPower >= 320)
+      {
+        numLED = 10;
+      }
+      
+      for(int i = 0; i < numLED; i++)
+      {
+        //turn on Green neopixels
+        CircuitPlayground.setPixelColor(i , 0x008000);
+      }
       delay(500000);
     }
     
