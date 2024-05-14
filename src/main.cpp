@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include <Adafruit_CircuitPlayground.h>
 #include "arduinoFFT.h"
+#include <Wire.h>
+#include <SPI.h>
 
 #define NEOPIX_PIN    A2
 #define NUM_PIXELS    5
@@ -14,7 +16,7 @@ const double sampling = 100; //the speed at which we take samples, 10ms
 int tTime = TIME;
 int testTime = (tTime/((1/sampling)*samples)); //calculates number of cycles necessary for (roughly) TIME seconds test time 
 
-const uint16_t N = 6; // Window size for moving average
+const uint16_t N = 8; // Window size for moving average
 float vReal[samples] = {0}; // A buffer to hold the real values
 float vImag[samples] = {0}; // A buffer to hold the imaginary values
 float freqDataPoints[100]; //A buffer for frequency data points collected from the FFT
@@ -32,8 +34,10 @@ float sumPeakPower = 0;
 //checks the average after about 10 seconds(roughly 15 processes)
 int processCounter = 0;
 
-void setup() { 
+void setup() 
+{ 
   CircuitPlayground.begin();
+
   // Configure the timer interrupt
   EICRA = 0b01000000; // Config for any edge
   
@@ -45,7 +49,8 @@ void setup() {
   OCR0A = 78; // 10ms clock cycle
 }
 
-float calculateNpointMovingAVG(float avg_vals[]) {
+float calculateNpointMovingAVG(float avg_vals[]) 
+{
   float sum = 0;
   for (int i = 0; i < N; i++) 
   {
@@ -98,11 +103,8 @@ void dataProcess(float *vData, uint16_t bufferSize)
 //used to fill the FFT array
 int counter = 0;
 
-//used to run moving average every 5 cycles of the ISR
-int movingAvgCounter = 0;
-
-
-ISR (TIMER0_COMPA_vect) {
+ISR (TIMER0_COMPA_vect) 
+{
   // This is ran every 5ms
 
   float xAccel = CircuitPlayground.motionX();
@@ -118,19 +120,10 @@ ISR (TIMER0_COMPA_vect) {
     avgArray[i] = avgArray[i+1];
   }
   avgArray[N-1] = accel;
-  movingAvgCounter++;
-  //either adds moving average or real time value to the FFT array, moving average makes up about half the array
-  if (movingAvgCounter == 1) 
-  {
-    movingAvgCounter=0;
-    float HRMovingAvg = calculateNpointMovingAVG(avgArray);
-    vReal[counter] = HRMovingAvg;
-  } 
-  
-  else 
-  {
-    vReal[counter] = accel;
-  }
+ 
+  //fills vReal with moving average values
+  float HRMovingAvg = calculateNpointMovingAVG(avgArray);
+  vReal[counter] = HRMovingAvg;
 
   //no imaginary values, so 0 for all of them
   vImag[counter] = 0;
@@ -158,7 +151,8 @@ ISR (TIMER0_COMPA_vect) {
   counter++;
 }
 
-void loop() {
+void loop() 
+{
   CircuitPlayground.clearPixels();
 
   //every ten cycles of finding total power(minus gravity) and power under the region of interest
@@ -168,8 +162,8 @@ void loop() {
     sumPower = sumPower/processCounter;
     sumPeakPower = sumPeakPower/processCounter;
 
-    //if the peak power is greater than 70% of the total power, then we consider it as a detection
-    if((.7*(sumPower) <= (sumPeakPower)))
+    //if the peak power is greater than 75% of the total power, then we consider it as a detection
+    if((.75*(sumPower) <= (sumPeakPower)))
     {
       //Green Light
       CircuitPlayground.setPixelColor(0, 0x008000);
