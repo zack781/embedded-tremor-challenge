@@ -4,20 +4,21 @@
 
 #define NEOPIX_PIN    A2
 #define NUM_PIXELS    5
-
-const uint8_t spBAD[]       PROGMEM = {0x08,0x00,0x71,0xC2,0x98,0xD1,0xA7,0xA9,0x5A,0xAA,0x13,0x14,0x15,0x1C,0x69,0xAD,0x4F,0x30,0xEC,0x88,0xAB,0x2F,0x3A,0xC1,0xB0,0x23,0x6E,0x51,0xEB,0x04,0xC3,0x9E,0x84,0x44,0xA3,0x13,0xF5,0xD0,0x16,0x16,0xB1,0x4E,0xDC,0x63,0x7B,0xA8,0xC7,0x3A,0x59,0x8F,0xED,0xA9,0x51,0xEB,0x54,0xAD,0x66,0x84,0x45,0xE5,0x55,0xB7,0x9C,0x91,0xE6,0xB5,0x57,0xDB,0x62,0x78,0x99,0xD7,0x6E,0x7D,0xCD,0xE6,0xEE,0x59,0xA5,0xF5,0x25,0xBA,0x85,0x57,0x99,0xD2,0x97,0xA0,0x11,0xD6,0x75,0xC2,0x98,0xBC,0x66,0xD6,0x46,0xD6,0x23,0x19,0x85,0x72,0x77,0x11,0xD9,0xE0,0xFA,0x6D,0xDC,0xC5,0xD4,0x4D,0xEA,0x9B,0x17,0x77,0x73,0xDB,0xFF,0x39,0x51,0x51,0x75,0x15,0x51,0x21};
-const uint8_t spGOOD[]      PROGMEM = {0xA9,0x2C,0xA9,0xC5,0xD4,0x6C,0x8F,0xA2,0x61,0xD7,0x68,0xE9,0xBC,0xCA,0x22,0xCC,0xDB,0x64,0xCD,0xA9,0x92,0x2A,0x37,0xB3,0xCD,0xB7,0x3A,0x55,0x52,0x19,0xAE,0xFA,0x7A,0x57,0xA3,0xCE,0xC2,0xA3,0x42,0x57,0xD7,0x06,0x35,0x22,0xB8,0x8B,0x88,0x6C,0x70,0xC3,0x36,0xEE,0x62,0xEA,0xC6,0x75,0xCD,0x8B,0xBB,0xB9,0x6D,0xDF,0xFD,0x09};
+#define TIME 15 //the amount of time you would like to take for a test, in seconds
 
 Adafruit_CPlay_NeoPixel strip = Adafruit_CPlay_NeoPixel(NUM_PIXELS, NEOPIX_PIN, NEO_GRB + NEO_KHZ800);
 
 const uint16_t samples = 64;
 const double sampling = 100; //the speed at which we take samples, 10ms
 
+int tTime = TIME;
+int testTime = (tTime/((1/sampling)*samples)); //calculates number of cycles necessary for (roughly) TIME seconds test time 
+
 const uint16_t N = 6; // Window size for moving average
 float vReal[samples] = {0}; // A buffer to hold the real values
 float vImag[samples] = {0}; // A buffer to hold the imaginary values
-float freqDataPoints[100];
-float MagnitudeDataPoints[100];
+float freqDataPoints[100]; //A buffer for frequency data points collected from the FFT
+float MagnitudeDataPoints[100]; //A buffer for the magnitude of the frequencies collected from the FFT
 float avgArray[N];
 
 //declares FFT object
@@ -33,7 +34,6 @@ int processCounter = 0;
 
 void setup() { 
   CircuitPlayground.begin();
-  Serial.begin(9600);
   // Configure the timer interrupt
   EICRA = 0b01000000; // Config for any edge
   
@@ -72,7 +72,7 @@ void calcPower()
       sumPeakPower += area;
       sumPower += area;
     }
-    // everywhere else where there isn't gravity
+    // everywhere else where there isn't gravity (most prevalent from 0-2)
     else if(freqDataPoints[i] > 2)
     {
       float area = findArea(freqDataPoints[i], freqDataPoints[i+1], MagnitudeDataPoints[i], MagnitudeDataPoints[i+1]);
@@ -81,18 +81,13 @@ void calcPower()
   }
 }
 
+//derived from the printVector function in the arduinoFFT examples
 void dataProcess(float *vData, uint16_t bufferSize)
 {
   for (uint16_t i = 0; i < bufferSize; i++)
   {
     float abscissa;
     abscissa = ((i * 1.0 * sampling) / samples);
-
-    // Serial.print(abscissa, 6);  
-    // Serial.print(" Hz");
-    // Serial.print(" ");
-    // Serial.print(">Magnitude:");
-    // Serial.println(vData[i], 4);
 
     //adding points into vectors (32 of them)
     freqDataPoints[i] = abscissa;
@@ -124,7 +119,7 @@ ISR (TIMER0_COMPA_vect) {
   }
   avgArray[N-1] = accel;
   movingAvgCounter++;
-  //either adds moving average or real time value to the FFT array
+  //either adds moving average or real time value to the FFT array, moving average makes up about half the array
   if (movingAvgCounter == 1) 
   {
     movingAvgCounter=0;
@@ -140,6 +135,7 @@ ISR (TIMER0_COMPA_vect) {
   //no imaginary values, so 0 for all of them
   vImag[counter] = 0;
   
+  //runs after vReal is filled
   if (counter == samples - 1) 
   {
     cli(); // Disable interrupts
@@ -147,14 +143,13 @@ ISR (TIMER0_COMPA_vect) {
     FFT.compute(FFTDirection::Forward); // Compute FFT
     FFT.complexToMagnitude(); // Compute magnitudes
 
-    //Serial.println("Computed magnitudes:");
     dataProcess(vReal, (samples >> 1));
 
     calcPower();
 
     counter = 0;
 
-    //incremenets number of times area has been calculated
+    //increments number of times area has been calculated
     processCounter++;
     sei(); // Enable interrupts
   }
@@ -167,28 +162,43 @@ void loop() {
   CircuitPlayground.clearPixels();
 
   //every ten cycles of finding total power(minus gravity) and power under the region of interest
-  if(processCounter == 15)
+  if(processCounter == testTime)
   {
     cli();
     sumPower = sumPower/processCounter;
     sumPeakPower = sumPeakPower/processCounter;
-    Serial.print("Average whole Power: ");
-    Serial.println(sumPower);
-    Serial.print("Average Peak Power: ");
-    Serial.println(sumPeakPower);
 
     //if the peak power is greater than 70% of the total power, then we consider it as a detection
-    if((.7*(sumPower)) <= (sumPeakPower))
+    if((.7*(sumPower) <= (sumPeakPower)))
     {
-      //do something
+      //Green Light
+      CircuitPlayground.setPixelColor(0, 0x008000);
+      CircuitPlayground.setPixelColor(1, 0x008000);
+      CircuitPlayground.setPixelColor(2, 0x008000);
+      CircuitPlayground.setPixelColor(3, 0x008000);
+      CircuitPlayground.setPixelColor(4, 0x008000);
       CircuitPlayground.setPixelColor(5, 0x008000);
-      delay(20000);
+      CircuitPlayground.setPixelColor(6, 0x008000);
+      CircuitPlayground.setPixelColor(7, 0x008000);
+      CircuitPlayground.setPixelColor(8, 0x008000);
+      CircuitPlayground.setPixelColor(9, 0x008000);
+      delay(500000);
     }
+    
     else
     {
-      //red light	
+      //red light
+      CircuitPlayground.setPixelColor(0, 0xFF0000);
+      CircuitPlayground.setPixelColor(1, 0xFF0000);
+      CircuitPlayground.setPixelColor(2, 0xFF0000);
+      CircuitPlayground.setPixelColor(3, 0xFF0000);
+      CircuitPlayground.setPixelColor(4, 0xFF0000);
       CircuitPlayground.setPixelColor(5, 0xFF0000);
-      delay(20000);
+      CircuitPlayground.setPixelColor(6, 0xFF0000);
+      CircuitPlayground.setPixelColor(7, 0xFF0000);
+      CircuitPlayground.setPixelColor(8, 0xFF0000);
+      CircuitPlayground.setPixelColor(9, 0xFF0000);
+      delay(500000);
     }
 
     sumPower = 0;
